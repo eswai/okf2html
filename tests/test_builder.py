@@ -233,3 +233,18 @@ def test_external_icon_label_details():
     # 表示名が " の場合もエスケープされる
     html = parser.render_markdown('[a"b](https://e.test)', [".md"], ".html")
     assert 'data-label="a&quot;b"' in html
+
+
+def test_leading_h1_is_dropped():
+    html = parser.render_markdown("# タイトル\n\n本文\n\n# 後の見出し\n", [".md"], ".html")
+    assert "タイトル" not in html
+    assert "後の見出し" in html
+    # 先頭が見出し1でなければそのまま
+    html = parser.render_markdown("前置き\n\n# 見出し\n", [".md"], ".html")
+    assert "<h1" in html
+
+
+def test_page_title_not_duplicated(tmp_path):
+    out = _build(tmp_path)
+    page = (out / "ガイド" / "運用" / "障害対応.html").read_text(encoding="utf-8")
+    assert page.count("<h1") == 1

@@ -161,6 +161,14 @@ class _LinkRewriter(Treeprocessor):
             a.set("href", new_href)
 
 
+class _DropLeadingTitle(Treeprocessor):
+    """本文の先頭の見出し1を取り除く。ページ名はテンプレート側で表示するので二重になる。"""
+
+    def run(self, root):
+        if len(root) and root[0].tag == "h1" and not (root.text or "").strip():
+            root.remove(root[0])
+
+
 class _LinkRewriteExtension(Extension):
     def __init__(
         self,
@@ -181,6 +189,7 @@ class _LinkRewriteExtension(Extension):
             "okf_links",
             0,
         )
+        md.treeprocessors.register(_DropLeadingTitle(md), "okf_drop_title", 1)
 
 
 def rewrite_link(href: str, source_exts: Iterable[str], out_ext: str) -> str:
