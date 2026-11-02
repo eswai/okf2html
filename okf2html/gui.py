@@ -69,7 +69,7 @@ class App:
         ttk.Radiobutton(fmt_box, text="ASPX (.aspx)", value="aspx", variable=self.format_var).pack(side="left", padx=12)
 
         ttk.Label(frm, text="外部リンク").grid(row=5, column=0, sticky="w", pady=3)
-        ttk.Checkbutton(frm, text="アイコンを付ける", variable=self.external_icon_var).grid(
+        ttk.Checkbutton(frm, text="アイコンだけで表示する（表示名はマウスを乗せると出る）", variable=self.external_icon_var).grid(
             row=5, column=1, sticky="w", padx=6
         )
 

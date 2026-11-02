@@ -23,7 +23,7 @@ def _make_parser() -> argparse.ArgumentParser:
         "--external-icon",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="外部リンク（http/https）の後ろに小さなアイコンを付ける（既定: 付ける。--no-external-icon で付けない）",
+        help="外部リンク（http/https）を表示名なしのアイコンにし、表示名はマウスを乗せたときに出す（既定: する。--no-external-icon でしない）",
     )
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return p

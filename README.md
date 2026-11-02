@@ -18,7 +18,9 @@ OKF（Markdown + YAML frontmatter）のフォルダから、2 ペイン構成の
   - 対象: `[[ページ]]`、`[](page.md)`、`[page](page.md)`、`[page.md](page.md)`、`[フォルダ/page.md](フォルダ/page.md)` など
   - 見出しつきは「title > 見出し」と表示する（例: `[[api#エンドポイント]]` → 「API リファレンス > エンドポイント」）
   - `[[ページ|表示名]]` や `[説明文](page.md)` のように表示名を書いたものはそのまま
-- 外部リンク（`http://` / `https://`）の後ろに小さなアイコンを付ける（`--no-external-icon` で付けない）
+- 外部リンク（`http://` / `https://`）はアイコンだけで表示する（`--no-external-icon` で通常の文字リンクに戻す）
+  - 表示名はアイコンにマウスを乗せたとき（キーボードで選んだとき）に表示する。読み上げソフトには表示名を伝える
+  - 画像を囲んだリンクはそのまま。印刷ではアイコンの代わりに表示名を出す
 - 画像・PDF（png, jpg, gif, svg, webp, pdf など）は同じフォルダ構成で出力先へコピーする
 - 入力のルートに `index.md` が無ければ、全ページの一覧ページ `index.html|aspx` を作る
 
@@ -48,7 +50,7 @@ okf2html INPUT_DIR -o OUTPUT_DIR [--format html|aspx] [--title サイト名] [--
 | `-f, --format` | `html`（既定）または `aspx` |
 | `-t, --title` | サイト名（既定: 入力フォルダ名） |
 | `--ext` | 対象の拡張子。カンマ区切りで複数可（既定: `.md`） |
-| `--external-icon` / `--no-external-icon` | 外部リンクにアイコンを付けるか（既定: 付ける） |
+| `--external-icon` / `--no-external-icon` | 外部リンクをアイコン表示にするか（既定: する） |
 
 例:
 

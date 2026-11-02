@@ -133,20 +133,77 @@ table.frontmatter .fm-rest { white-space: pre-wrap; color: #3d4447; }
 .body p, .body ul, .body ol, .body blockquote, .body pre, .body table { margin: 0 0 1em; }
 .body a { color: var(--accent); }
 .body a:hover { color: var(--accent-dark); }
-.body a.external::after {
-  content: "";
+/* 外部リンク: アイコンだけを表示し、表示名はマウスを乗せたときに出す */
+.body a.external {
+  position: relative;
   display: inline-block;
-  width: 0.72em;
-  height: 0.72em;
-  margin-left: 0.18em;
-  vertical-align: 0.02em;
+  width: 1.3em;
+  height: 1.3em;
+  margin: 0 0.12em;
+  vertical-align: -0.28em;
+  border-radius: 4px;
+  color: var(--accent);
+  text-decoration: none;
+}
+.body a.external::before {
+  content: "";
+  position: absolute;
+  inset: 0.1em;
   background-color: currentColor;
-  opacity: 0.75;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6'/%3E%3Cpath d='M11 13l9-9'/%3E%3Cpath d='M15 4h5v5'/%3E%3C/svg%3E") no-repeat center / contain;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6'/%3E%3Cpath d='M11 13l9-9'/%3E%3Cpath d='M15 4h5v5'/%3E%3C/svg%3E") no-repeat center / contain;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6'/%3E%3Cpath d='M11 13l9-9'/%3E%3Cpath d='M15 4h5v5'/%3E%3C/svg%3E") no-repeat center / contain;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6'/%3E%3Cpath d='M11 13l9-9'/%3E%3Cpath d='M15 4h5v5'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+.body a.external:hover,
+.body a.external:focus-visible {
+  color: var(--accent-dark);
+  background: rgba(74, 111, 115, 0.12);
+  outline: none;
+}
+.body a.external::after {
+  content: attr(data-label);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 24em;
+  padding: 5px 9px;
+  border-radius: 4px;
+  background: #3a4245;
+  color: #f7f6f3;
+  font-size: 12.5px;
+  line-height: 1.45;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s;
+  z-index: 10;
+}
+.body a.external:hover::after,
+.body a.external:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
 }
 @media print {
-  .body a.external::after { display: none; }
+  /* 印刷ではアイコンの代わりに表示名を出す */
+  .body a.external { display: inline; width: auto; height: auto; margin: 0; }
+  .body a.external::before { display: none; }
+  .body a.external::after {
+    content: attr(data-label);
+    position: static;
+    transform: none;
+    width: auto;
+    max-width: none;
+    padding: 0;
+    background: none;
+    color: inherit;
+    font-size: inherit;
+    opacity: 1;
+    visibility: visible;
+  }
 }
 .body .wikilink.missing {
   color: var(--text-muted);

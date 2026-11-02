@@ -171,7 +171,7 @@ def test_link_text_uses_title(tmp_path):
     assert '<a href="リファレンス/api.html#エンドポイント">api &gt; エンドポイント</a>' in top
     # 外部リンクや画像は触らない
     html = parser.render_markdown("[a.md](https://x.test/a.md)", [".md"], ".html", link_title=lambda p: "T")
-    assert ">a.md</a>" in html
+    assert 'data-label="a.md"' in html and "T" not in html
 
 
 def test_wikilink_without_label_uses_title(tmp_path):
@@ -200,8 +200,9 @@ def test_is_external_link():
 def test_external_icon_on_by_default():
     md = "[外](https://example.com) [内](page.md) <https://example.com/x> [[p]]"
     html = parser.render_markdown(md, [".md"], ".html", wiki_resolver=lambda t: ("p.html", "P"))
-    assert '<a class="external" href="https://example.com">外</a>' in html
-    assert 'class="external" href="https://example.com/x"' in html
+    # 表示名は消してアイコンだけにし、表示名は data-label / aria-label に入れる
+    assert '<a aria-label="外" class="external" data-label="外" href="https://example.com"></a>' in html
+    assert 'data-label="https://example.com/x"' in html
     assert '<a href="page.html">内</a>' in html
     assert '<a class="wikilink" href="p.html">P</a>' in html
 
@@ -218,3 +219,17 @@ def test_cli_external_icon_option(tmp_path):
     page = Path("ガイド") / "環境構築.html"
     assert 'class="external"' in (on / page).read_text(encoding="utf-8")
     assert 'class="external"' not in (off / page).read_text(encoding="utf-8")
+
+
+def test_external_icon_label_details():
+    md = "[**太字** と `code`](https://e.test) [![画像](a.png)](https://e.test/img) []()"
+    html = parser.render_markdown(md, [".md"], ".html")
+    # 書式つきの表示名は文字だけを取り出す
+    assert 'data-label="太字 と code"' in html
+    assert "<strong>" not in html
+    # 画像を囲んだリンクは画像を残す（アイコン化しない）
+    assert '<img alt="画像" src="a.png"' in html
+    assert 'data-label="画像"' not in html
+    # 表示名が " の場合もエスケープされる
+    html = parser.render_markdown('[a"b](https://e.test)', [".md"], ".html")
+    assert 'data-label="a&quot;b"' in html

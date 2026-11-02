@@ -112,6 +112,22 @@ def is_external_link(href: str) -> bool:
     return parts.scheme.lower() in ("http", "https") or (not parts.scheme and bool(parts.netloc))
 
 
+def _make_icon_link(a, href: str) -> None:
+    """外部リンクをアイコンだけの表示にする。表示名はマウスを乗せたときに出す（CSS）。
+
+    画像を囲んだリンクは画像が消えてしまうので、そのままにする。
+    """
+    if any(el.tag == "img" for el in a.iter()):
+        return
+    label = " ".join("".join(a.itertext()).split()) or href
+    for child in list(a):
+        a.remove(child)
+    a.text = None
+    a.set("class", ((a.get("class") or "") + " external").strip())
+    a.set("data-label", label)
+    a.set("aria-label", label)
+
+
 class _LinkRewriter(Treeprocessor):
     def __init__(
         self,
@@ -133,8 +149,7 @@ class _LinkRewriter(Treeprocessor):
             if not href or "wikilink" in (a.get("class") or ""):
                 continue
             if self.external_icon and is_external_link(href):
-                # 外部リンクには CSS で小さなアイコンを付ける
-                a.set("class", ((a.get("class") or "") + " external").strip())
+                _make_icon_link(a, href)
                 continue
             new_href = rewrite_link(href, self.source_exts, self.out_ext)
             if new_href != href and self.link_title and len(a) == 0:
