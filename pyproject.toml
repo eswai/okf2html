@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "okf2html"
+version = "0.1.0"
+description = "OKF（Markdown + YAML frontmatter）から 2 ペインの静的サイト（HTML / ASPX）を生成する"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["markdown>=3.4", "PyYAML>=6.0"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[project.scripts]
+okf2html = "okf2html.cli:main"
+
+[project.gui-scripts]
+okf2html-gui = "okf2html.gui:main"
+
+[tool.setuptools]
+packages = ["okf2html"]
+
+[tool.setuptools.package-data]
+okf2html = ["style.css"]
