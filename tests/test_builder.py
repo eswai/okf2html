@@ -248,3 +248,11 @@ def test_page_title_not_duplicated(tmp_path):
     out = _build(tmp_path)
     page = (out / "ガイド" / "運用" / "障害対応.html").read_text(encoding="utf-8")
     assert page.count("<h1") == 1
+
+
+def test_frontmatter_table_is_collapsed():
+    html = render_frontmatter({"title": "A", "tags": ["x", "y"]})
+    assert html.startswith('<details class="frontmatter-block">')
+    assert "<details class=\"frontmatter-block\" open" not in html
+    assert "2 項目" in html
+    assert render_frontmatter(None) == ""

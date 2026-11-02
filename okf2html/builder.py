@@ -191,7 +191,12 @@ def render_frontmatter(meta: Optional[dict]) -> str:
                 f'</summary><div class="fm-rest">{escape(rest)}</div></details>'
             )
         rows.append(f"<tr><th>{escape(str(key))}</th><td>{cell}</td></tr>")
-    return f'<table class="frontmatter">{"".join(rows)}</table>'
+    # 表は最初は閉じておき、クリックで開く
+    return (
+        '<details class="frontmatter-block">'
+        f'<summary>frontmatter<span class="fm-count">{len(rows)} 項目</span></summary>'
+        f'<table class="frontmatter">{"".join(rows)}</table></details>'
+    )
 
 
 def _render_index_body(root: Folder, index_out: str) -> str:
