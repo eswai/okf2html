@@ -133,6 +133,11 @@ table.frontmatter .fm-rest { white-space: pre-wrap; color: #3d4447; }
 .body p, .body ul, .body ol, .body blockquote, .body pre, .body table { margin: 0 0 1em; }
 .body a { color: var(--accent); }
 .body a:hover { color: var(--accent-dark); }
+.body .wikilink.missing {
+  color: var(--text-muted);
+  text-decoration: underline dotted;
+  cursor: help;
+}
 .body code {
   background: var(--code-bg);
   padding: 1px 5px;

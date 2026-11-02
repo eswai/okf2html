@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import posixpath
 import shutil
+import unicodedata
 from dataclasses import dataclass, field
 from html import escape
 from pathlib import Path, PurePosixPath
@@ -100,6 +101,62 @@ def _render_nav(node: Folder, current_out: str, index_out: str, site_title: str)
         f'<a class="{home_cls}" href="{escape(_rel_href(current_out, index_out))}">{escape(site_title)}</a>'
         f'<div class="nav-tree">{render(node)}</div>'
     )
+
+
+def _norm(s: str) -> str:
+    # macOS のファイル名は濁点が分解された形（NFD）のことがあるので揃える
+    return unicodedata.normalize("NFC", s).casefold()
+
+
+class WikiIndex:
+    """[[リンク先]] を出力ページに対応づける。
+
+    探す順番: 今のページからの相対パス → 入力フォルダからのパス → ファイル名 → title
+    """
+
+    def __init__(self, pages: Sequence[Page], source_exts: Sequence[str]):
+        self.source_exts = tuple(source_exts)
+        self.by_path: Dict[str, Page] = {}
+        self.by_stem: Dict[str, List[Page]] = {}
+        self.by_title: Dict[str, List[Page]] = {}
+        for p in pages:
+            no_ext = p.rel.with_suffix("").as_posix()
+            self.by_path[_norm(no_ext)] = p
+            self.by_stem.setdefault(_norm(p.rel.stem), []).append(p)
+            self.by_title.setdefault(_norm(p.title), []).append(p)
+
+    def _strip_ext(self, target: str) -> str:
+        for ext in self.source_exts:
+            if target.lower().endswith(ext):
+                return target[: -len(ext)]
+        return target
+
+    def find(self, target: str, current: Page) -> Optional[Page]:
+        target = self._strip_ext(target.strip().replace("\\", "/")).strip("/")
+        if not target:
+            return None
+        cur_dir = posixpath.dirname(current.rel.as_posix())
+        for path in (posixpath.join(cur_dir, target), target):
+            hit = self.by_path.get(_norm(posixpath.normpath(path)))
+            if hit:
+                return hit
+        if "/" not in target:
+            same_dir_first = lambda p: (posixpath.dirname(p.rel.as_posix()) != cur_dir, len(p.rel.parts), p.out_rel)
+            for table in (self.by_stem, self.by_title):
+                found = table.get(_norm(target))
+                if found:
+                    return sorted(found, key=same_dir_first)[0]
+        return None
+
+    def resolver(self, current: Page, warn: Callable[[str], None]) -> Callable[[str], Optional[str]]:
+        def resolve(target: str) -> Optional[str]:
+            hit = self.find(target, current)
+            if hit is None:
+                warn(f"警告: {current.rel}: リンク先が見つかりません: [[{target}]]")
+                return None
+            return _rel_href(current.out_rel, hit.out_rel)
+
+        return resolve
 
 
 def render_frontmatter(meta: Optional[dict]) -> str:
@@ -202,9 +259,11 @@ def build(
         with open(dest, "w", encoding="utf-8", newline="\n") as f:
             f.write(html)
 
+    wiki = WikiIndex(pages, exts)
     total = len(pages)
     for i, page in enumerate(pages, 1):
-        content = render_frontmatter(page.meta) + '<div class="body">' + parser.render_markdown(page.body, exts, out_ext) + "</div>"
+        body_html = parser.render_markdown(page.body, exts, out_ext, wiki.resolver(page, warn))
+        content = render_frontmatter(page.meta) + '<div class="body">' + body_html + "</div>"
         html = template.render_page(
             title=page.title,
             site_title=site_title,

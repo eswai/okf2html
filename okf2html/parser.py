@@ -3,13 +3,28 @@ from __future__ import annotations
 
 import datetime as _dt
 import re
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Iterable, List, Optional, Tuple
 from urllib.parse import urlsplit, urlunsplit
+
+import xml.etree.ElementTree as etree
 
 import markdown
 import yaml
 from markdown.extensions import Extension
+from markdown.extensions.toc import slugify_unicode
+from markdown.inlinepatterns import InlineProcessor
 from markdown.treeprocessors import Treeprocessor
+
+# [[リンク先]] / [[リンク先|表示名]] / [[リンク先#見出し]] / [[#見出し]]
+WIKILINK_RE = r"\[\[([^\[\]\n]+?)\]\]"
+
+# リンク先の文字列（拡張子なし）を受け取り、href を返す。見つからなければ None
+WikiResolver = Callable[[str], Optional[str]]
+
+
+def heading_slug(text: str, sep: str = "-") -> str:
+    """見出しのアンカー ID。日本語の見出しでも空にならないようにする。"""
+    return slugify_unicode(text, sep)
 
 _FRONTMATTER_RE = re.compile(r"\A﻿?---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.S)
 
@@ -98,15 +113,69 @@ def rewrite_link(href: str, source_exts: Iterable[str], out_ext: str) -> str:
     return href
 
 
-def render_markdown(body: str, source_exts: Iterable[str], out_ext: str) -> str:
+def split_wikilink(inner: str) -> Tuple[str, str, str]:
+    """[[...]] の中身を (リンク先, 見出し, 表示名) に分ける。"""
+    target, _, label = inner.partition("|")
+    target, _, fragment = target.partition("#")
+    target, fragment, label = target.strip(), fragment.strip(), label.strip()
+    if not label:
+        label = target + (f"#{fragment}" if fragment and target else fragment)
+    return target, fragment, label
+
+
+class _WikiLinkProcessor(InlineProcessor):
+    def __init__(self, pattern, md, resolver: Optional[WikiResolver]):
+        super().__init__(pattern, md)
+        self.resolver = resolver
+
+    def handleMatch(self, m, data):
+        target, fragment, label = split_wikilink(m.group(1))
+        if not target and not fragment:
+            return None, None, None  # [[ ]] のように中身が無いものはそのまま残す
+        anchor = f"#{heading_slug(fragment)}" if fragment else ""
+        if not target:
+            href: Optional[str] = anchor or None  # [[#見出し]] は同じページ内
+        else:
+            page = self.resolver(target) if self.resolver else None
+            href = page + anchor if page else None
+        if href is None:
+            el = etree.Element("span")
+            el.set("class", "wikilink missing")
+            el.set("title", "リンク先のページが見つかりません")
+        else:
+            el = etree.Element("a")
+            el.set("class", "wikilink")
+            el.set("href", href)
+        el.text = label
+        return el, m.start(0), m.end(0)
+
+
+class _WikiLinkExtension(Extension):
+    def __init__(self, resolver: Optional[WikiResolver]):
+        super().__init__()
+        self.resolver = resolver
+
+    def extendMarkdown(self, md):
+        # 通常のリンク（優先度 160）より先に処理する
+        md.inlinePatterns.register(_WikiLinkProcessor(WIKILINK_RE, md, self.resolver), "okf_wikilink", 175)
+
+
+def render_markdown(
+    body: str,
+    source_exts: Iterable[str],
+    out_ext: str,
+    wiki_resolver: Optional[WikiResolver] = None,
+) -> str:
     md = markdown.Markdown(
         extensions=[
             "tables",
             "fenced_code",
             "toc",
             "sane_lists",
+            _WikiLinkExtension(wiki_resolver),
             _LinkRewriteExtension(list(source_exts), out_ext),
         ],
+        extension_configs={"toc": {"slugify": heading_slug}},
         output_format="html",
     )
     return md.convert(body)
