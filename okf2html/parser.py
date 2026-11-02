@@ -161,6 +161,38 @@ class _LinkRewriter(Treeprocessor):
             a.set("href", new_href)
 
 
+# ローカルリンクの表示名はこの文字数までにし、続きはマウスを乗せたときに出す
+LABEL_MAX = 20
+
+
+def _truncate_label(el, limit: int = LABEL_MAX) -> None:
+    if el.get("data-label") or any(c.tag == "img" for c in el.iter()):
+        return
+    full = " ".join("".join(el.itertext()).split())
+    if len(full) <= limit:
+        return
+    for child in list(el):
+        el.remove(child)
+    el.text = full[:limit] + "…"
+    el.set("class", ((el.get("class") or "") + " truncated").strip())
+    el.set("data-label", full)
+    el.set("aria-label", full)
+    el.attrib.pop("title", None)  # 吹き出しと重ならないようにする
+
+
+class _TruncateLocalLabels(Treeprocessor):
+    """外部リンク以外のリンク（ページ・ファイル・見つからない [[ ]]）の長い表示名を短くする。"""
+
+    def run(self, root):
+        for el in list(root.iter()):
+            cls = el.get("class") or ""
+            if el.tag == "a" and el.get("href") and "external" not in cls.split():
+                if not is_external_link(el.get("href")):
+                    _truncate_label(el)
+            elif el.tag == "span" and "wikilink" in cls.split():
+                _truncate_label(el)
+
+
 class _DropLeadingTitle(Treeprocessor):
     """本文の先頭の見出し1を取り除く。ページ名はテンプレート側で表示するので二重になる。"""
 
@@ -190,6 +222,7 @@ class _LinkRewriteExtension(Extension):
             0,
         )
         md.treeprocessors.register(_DropLeadingTitle(md), "okf_drop_title", 1)
+        md.treeprocessors.register(_TruncateLocalLabels(md), "okf_truncate", -1)
 
 
 def rewrite_link(href: str, source_exts: Iterable[str], out_ext: str) -> str:

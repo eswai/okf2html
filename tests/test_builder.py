@@ -262,3 +262,27 @@ def test_sidebar_scroll_is_kept(tmp_path):
     out = _build(tmp_path)
     page = (out / "はじめに.html").read_text(encoding="utf-8")
     assert "okf2html:sidebar-scroll" in page
+
+
+def test_long_local_label_is_truncated():
+    long = "とても長い表示名のリンクでありこれは二十文字を超えています"
+    html = parser.render_markdown(f"[{long}](a.md) と [短い名前](b.md)", [".md"], ".html")
+    assert f'data-label="{long}"' in html
+    assert f">{long[:20]}…</a>" in html
+    assert 'class="truncated"' in html
+    assert ">短い名前</a>" in html
+    # ちょうど 20 字はそのまま
+    twenty = "あ" * 20
+    assert f">{twenty}</a>" in parser.render_markdown(f"[{twenty}](a.md)", [".md"], ".html")
+
+
+def test_long_external_label_not_truncated_when_icon_off():
+    long = "x" * 30
+    html = parser.render_markdown(f"[{long}](https://example.com)", [".md"], ".html", external_icon=False)
+    assert "truncated" not in html
+
+
+def test_long_wikilink_label_is_truncated():
+    resolver = lambda t: ("p.html", "とても長いタイトルのページで二十文字を超えるもの")
+    html = parser.render_markdown("[[p]]", [".md"], ".html", wiki_resolver=resolver)
+    assert 'class="wikilink truncated"' in html

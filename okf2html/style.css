@@ -183,7 +183,9 @@ table.frontmatter .fm-rest { white-space: pre-wrap; color: #3d4447; }
   background: rgba(74, 111, 115, 0.12);
   outline: none;
 }
-.body a.external::after {
+.body .truncated { position: relative; white-space: nowrap; }
+.body a.external::after,
+.body .truncated::after {
   content: attr(data-label);
   position: absolute;
   left: 50%;
@@ -200,14 +202,20 @@ table.frontmatter .fm-rest { white-space: pre-wrap; color: #3d4447; }
   white-space: normal;
   overflow-wrap: anywhere;
   text-align: left;
+  font-weight: normal;
+  text-decoration: none;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.12s;
   z-index: 10;
 }
+/* 短くした表示名の吹き出しは左端にそろえる（右へはみ出しにくくする） */
+.body .truncated::after { left: 0; transform: none; }
 .body a.external:hover::after,
-.body a.external:focus-visible::after {
+.body a.external:focus-visible::after,
+.body .truncated:hover::after,
+.body .truncated:focus-visible::after {
   opacity: 1;
   visibility: visible;
 }
