@@ -256,3 +256,9 @@ def test_frontmatter_table_is_collapsed():
     assert "<details class=\"frontmatter-block\" open" not in html
     assert "2 項目" in html
     assert render_frontmatter(None) == ""
+
+
+def test_sidebar_scroll_is_kept(tmp_path):
+    out = _build(tmp_path)
+    page = (out / "はじめに.html").read_text(encoding="utf-8")
+    assert "okf2html:sidebar-scroll" in page

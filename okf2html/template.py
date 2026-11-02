@@ -22,6 +22,24 @@ $css
 <nav class="sidebar" aria-label="ページ一覧">
 $nav
 </nav>
+<script>
+/* 左ペインのスクロール位置を、ページを移っても保つ */
+(function () {
+  var nav = document.querySelector(".sidebar"), key = "okf2html:sidebar-scroll";
+  if (!nav) return;
+  var saved = null;
+  try { saved = sessionStorage.getItem(key); } catch (e) {}
+  if (saved !== null) {
+    nav.scrollTop = parseInt(saved, 10) || 0;
+  } else {
+    var cur = nav.querySelector(".current");
+    if (cur && cur.offsetTop > nav.clientHeight) nav.scrollTop = cur.offsetTop - nav.clientHeight / 3;
+  }
+  function save() { try { sessionStorage.setItem(key, String(nav.scrollTop)); } catch (e) {} }
+  nav.addEventListener("click", function (ev) { if (ev.target.closest("a")) save(); });
+  window.addEventListener("pagehide", save);
+})();
+</script>
 <main class="content">
 <article>
 <h1 class="page-title">$heading</h1>
