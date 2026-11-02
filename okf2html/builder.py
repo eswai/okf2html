@@ -7,7 +7,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from html import escape
 from pathlib import Path, PurePosixPath
-from typing import Callable, Dict, List, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from . import parser, template
 
@@ -148,15 +148,30 @@ class WikiIndex:
                     return sorted(found, key=same_dir_first)[0]
         return None
 
-    def resolver(self, current: Page, warn: Callable[[str], None]) -> Callable[[str], Optional[str]]:
-        def resolve(target: str) -> Optional[str]:
+    def resolver(self, current: Page, warn: Callable[[str], None]) -> Callable[[str], Optional[Tuple[str, str]]]:
+        """[[リンク先]] → (href, title)"""
+
+        def resolve(target: str) -> Optional[Tuple[str, str]]:
             hit = self.find(target, current)
             if hit is None:
                 warn(f"警告: {current.rel}: リンク先が見つかりません: [[{target}]]")
                 return None
-            return _rel_href(current.out_rel, hit.out_rel)
+            return _rel_href(current.out_rel, hit.out_rel), hit.title
 
         return resolve
+
+    def link_title(self, current: Page) -> Callable[[str], Optional[str]]:
+        """[表示名](パス) のパス → リンク先ページの title（パスは今のページからの相対）"""
+
+        def title_for(path: str) -> Optional[str]:
+            path = self._strip_ext(path.replace("\\", "/"))
+            if not path or path.startswith("/"):
+                return None
+            cur_dir = posixpath.dirname(current.rel.as_posix())
+            hit = self.by_path.get(_norm(posixpath.normpath(posixpath.join(cur_dir, path))))
+            return hit.title if hit else None
+
+        return title_for
 
 
 def render_frontmatter(meta: Optional[dict]) -> str:
@@ -262,7 +277,9 @@ def build(
     wiki = WikiIndex(pages, exts)
     total = len(pages)
     for i, page in enumerate(pages, 1):
-        body_html = parser.render_markdown(page.body, exts, out_ext, wiki.resolver(page, warn))
+        body_html = parser.render_markdown(
+            page.body, exts, out_ext, wiki.resolver(page, warn), wiki.link_title(page)
+        )
         content = render_frontmatter(page.meta) + '<div class="body">' + body_html + "</div>"
         html = template.render_page(
             title=page.title,

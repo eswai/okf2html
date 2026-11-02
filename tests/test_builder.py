@@ -109,10 +109,10 @@ def test_cli_exit_codes(tmp_path, capsys):
 
 
 def test_split_wikilink():
-    assert parser.split_wikilink("a") == ("a", "", "a")
+    assert parser.split_wikilink("a") == ("a", "", "")
     assert parser.split_wikilink("a|表示") == ("a", "", "表示")
-    assert parser.split_wikilink("a#見出し") == ("a", "見出し", "a#見出し")
-    assert parser.split_wikilink("#見出し") == ("", "見出し", "見出し")
+    assert parser.split_wikilink("a#見出し") == ("a", "見出し", "")
+    assert parser.split_wikilink(" #見出し | 表示 ") == ("", "見出し", "表示")
 
 
 def test_wikilinks(tmp_path):
@@ -122,8 +122,8 @@ def test_wikilinks(tmp_path):
     top = (out / "はじめに.aspx").read_text(encoding="utf-8")
     assert '<a class="wikilink" href="ガイド/環境構築.aspx">環境構築</a>' in top
     assert '<a class="wikilink" href="ガイド/運用/デプロイ手順.aspx">デプロイのやり方</a>' in top
-    assert '<a class="wikilink" href="リファレンス/api.aspx#エンドポイント">api#エンドポイント</a>' in top
-    assert '<a class="wikilink" href="ガイド/運用/障害対応.aspx">ガイド/運用/障害対応.md</a>' in top
+    assert '<a class="wikilink" href="リファレンス/api.aspx#エンドポイント">api &gt; エンドポイント</a>' in top
+    assert '<a class="wikilink" href="ガイド/運用/障害対応.aspx">障害対応</a>' in top
     assert '<a class="wikilink" href="FAQ/よくある質問.aspx">よくある質問</a>' in top
     assert '<span class="wikilink missing"' in top and "まだ無いページ</span>" in top
     assert "<code>[[環境構築]]</code>" in top
@@ -155,3 +155,33 @@ def test_wikilink_nfd_filename(tmp_path):
 def test_empty_wikilink_is_left_as_text():
     html = parser.render_markdown("見出し [[ ]] と [[|x]]", [".md"], ".html")
     assert "[[ ]]" in html and "[[|x]]" in html
+
+
+def test_link_text_uses_title(tmp_path):
+    out = _build(tmp_path)
+    top = (out / "はじめに.html").read_text(encoding="utf-8")
+    deploy = 'href="ガイド/運用/デプロイ手順.html"'
+    # [[ファイル名]] はリンク先の title で表示、[[x|表示名]] はそのまま
+    assert f'<a class="wikilink" {deploy}>デプロイのやり方</a>' in top
+    # [](x.md) / [ファイル名](x.md) / [パス](x.md) は title で表示
+    assert top.count(f"<a {deploy}>本番環境へのデプロイ</a>") == 3
+    # 表示名を書いたものはそのまま
+    assert f"<a {deploy}>手順書はこちら</a>" in top
+    # 見出しつきは「title > 見出し」
+    assert '<a href="リファレンス/api.html#エンドポイント">api &gt; エンドポイント</a>' in top
+    # 外部リンクや画像は触らない
+    html = parser.render_markdown("[a.md](https://x.test/a.md)", [".md"], ".html", link_title=lambda p: "T")
+    assert ">a.md</a>" in html
+
+
+def test_wikilink_without_label_uses_title(tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "p.md").write_text("---\ntitle: ページP\n---\n## 節\n", encoding="utf-8")
+    (src / "top.md").write_text("[[p]] [[p#節]] [[p|自分で]] [x](p.md)", encoding="utf-8")
+    build(str(src), str(tmp_path / "o"), log=lambda m: None, warn=lambda m: None)
+    top = (tmp_path / "o" / "top.html").read_text(encoding="utf-8")
+    assert '<a class="wikilink" href="p.html">ページP</a>' in top
+    assert '<a class="wikilink" href="p.html#節">ページP &gt; 節</a>' in top
+    assert '<a class="wikilink" href="p.html">自分で</a>' in top
+    assert '<a href="p.html">x</a>' in top

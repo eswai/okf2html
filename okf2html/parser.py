@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import datetime as _dt
+import posixpath
 import re
+import unicodedata
 from typing import Any, Callable, Iterable, List, Optional, Tuple
-from urllib.parse import urlsplit, urlunsplit
-
+from urllib.parse import unquote, urlsplit, urlunsplit
 import xml.etree.ElementTree as etree
 
 import markdown
@@ -18,15 +19,19 @@ from markdown.treeprocessors import Treeprocessor
 # [[リンク先]] / [[リンク先|表示名]] / [[リンク先#見出し]] / [[#見出し]]
 WIKILINK_RE = r"\[\[([^\[\]\n]+?)\]\]"
 
-# リンク先の文字列（拡張子なし）を受け取り、href を返す。見つからなければ None
-WikiResolver = Callable[[str], Optional[str]]
+# [[リンク先]] の文字列を受け取り、(href, リンク先の title) を返す。見つからなければ None
+WikiResolver = Callable[[str], Optional[Tuple[str, str]]]
+
+# [表示名](パス) のパス（URL デコード済み・# より前）を受け取り、リンク先の title を返す。ページでなければ None
+LinkTitle = Callable[[str], Optional[str]]
 
 
 def heading_slug(text: str, sep: str = "-") -> str:
     """見出しのアンカー ID。日本語の見出しでも空にならないようにする。"""
     return slugify_unicode(text, sep)
 
-_FRONTMATTER_RE = re.compile(r"\A﻿?---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.S)
+
+_FRONTMATTER_RE = re.compile(r"\A\ufeff?---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.S)
 
 
 def split_frontmatter(text: str) -> Tuple[Optional[dict], str, Optional[str]]:
@@ -36,7 +41,7 @@ def split_frontmatter(text: str) -> Tuple[Optional[dict], str, Optional[str]]:
     """
     m = _FRONTMATTER_RE.match(text)
     if not m:
-        return None, text.lstrip("﻿"), None
+        return None, text.lstrip("\ufeff"), None
     body = text[m.end():]
     try:
         data = yaml.safe_load(m.group(1))
@@ -77,27 +82,63 @@ def format_value(v: Any) -> List[str]:
     return text.splitlines() or [""]
 
 
+def link_label(title: str, fragment: str = "") -> str:
+    """ページへのリンクの表示名。見出しつきなら「title > 見出し」。"""
+    return f"{title} > {fragment}" if fragment else title
+
+
+def _is_default_link_text(text: str, href: str, source_exts: Iterable[str]) -> bool:
+    """[表示名](href) の表示名が、空やファイル名・パスそのもの（＝表示名を書いていない）か。"""
+    text = unicodedata.normalize("NFC", text.strip())
+    if not text:
+        return True
+    parts = urlsplit(href)
+    path = unquote(parts.path)
+    base = posixpath.basename(path)
+    names = {path, base}
+    for ext in source_exts:
+        for c in (path, base):
+            if c.lower().endswith(ext):
+                names.add(c[: -len(ext)])
+    candidates = {href, unquote(href)} | names
+    if parts.fragment:
+        candidates |= {f"{n}#{unquote(parts.fragment)}" for n in names}
+    return text in {unicodedata.normalize("NFC", c) for c in candidates}
+
+
 class _LinkRewriter(Treeprocessor):
-    def __init__(self, md, source_exts: Iterable[str], out_ext: str):
+    def __init__(self, md, source_exts: Iterable[str], out_ext: str, link_title: Optional[LinkTitle]):
         super().__init__(md)
         self.source_exts = tuple(e.lower() for e in source_exts)
         self.out_ext = out_ext
+        self.link_title = link_title
 
     def run(self, root):
         for a in root.iter("a"):
             href = a.get("href")
-            if href:
-                a.set("href", rewrite_link(href, self.source_exts, self.out_ext))
+            if not href or "wikilink" in (a.get("class") or ""):
+                continue
+            new_href = rewrite_link(href, self.source_exts, self.out_ext)
+            if new_href != href and self.link_title and len(a) == 0:
+                # 表示名を書いていないページへのリンクは、リンク先の title を表示する
+                parts = urlsplit(href)
+                title = self.link_title(unquote(parts.path))
+                if title is not None and _is_default_link_text(a.text or "", href, self.source_exts):
+                    a.text = link_label(title, unquote(parts.fragment))
+            a.set("href", new_href)
 
 
 class _LinkRewriteExtension(Extension):
-    def __init__(self, source_exts: Iterable[str], out_ext: str):
+    def __init__(self, source_exts: Iterable[str], out_ext: str, link_title: Optional[LinkTitle]):
         super().__init__()
         self.source_exts = source_exts
         self.out_ext = out_ext
+        self.link_title = link_title
 
     def extendMarkdown(self, md):
-        md.treeprocessors.register(_LinkRewriter(md, self.source_exts, self.out_ext), "okf_links", 0)
+        md.treeprocessors.register(
+            _LinkRewriter(md, self.source_exts, self.out_ext, self.link_title), "okf_links", 0
+        )
 
 
 def rewrite_link(href: str, source_exts: Iterable[str], out_ext: str) -> str:
@@ -114,13 +155,10 @@ def rewrite_link(href: str, source_exts: Iterable[str], out_ext: str) -> str:
 
 
 def split_wikilink(inner: str) -> Tuple[str, str, str]:
-    """[[...]] の中身を (リンク先, 見出し, 表示名) に分ける。"""
+    """[[...]] の中身を (リンク先, 見出し, 表示名) に分ける。表示名が無ければ ""。"""
     target, _, label = inner.partition("|")
     target, _, fragment = target.partition("#")
-    target, fragment, label = target.strip(), fragment.strip(), label.strip()
-    if not label:
-        label = target + (f"#{fragment}" if fragment and target else fragment)
-    return target, fragment, label
+    return target.strip(), fragment.strip(), label.strip()
 
 
 class _WikiLinkProcessor(InlineProcessor):
@@ -133,11 +171,18 @@ class _WikiLinkProcessor(InlineProcessor):
         if not target and not fragment:
             return None, None, None  # [[ ]] のように中身が無いものはそのまま残す
         anchor = f"#{heading_slug(fragment)}" if fragment else ""
+        href: Optional[str] = None
         if not target:
-            href: Optional[str] = anchor or None  # [[#見出し]] は同じページ内
+            href = anchor  # [[#見出し]] は同じページ内
+            label = label or fragment
         else:
-            page = self.resolver(target) if self.resolver else None
-            href = page + anchor if page else None
+            found = self.resolver(target) if self.resolver else None
+            if found:
+                page_href, title = found
+                href = page_href + anchor
+                label = label or link_label(title, fragment)
+            else:
+                label = label or (f"{target}#{fragment}" if fragment else target)
         if href is None:
             el = etree.Element("span")
             el.set("class", "wikilink missing")
@@ -165,6 +210,7 @@ def render_markdown(
     source_exts: Iterable[str],
     out_ext: str,
     wiki_resolver: Optional[WikiResolver] = None,
+    link_title: Optional[LinkTitle] = None,
 ) -> str:
     md = markdown.Markdown(
         extensions=[
@@ -173,7 +219,7 @@ def render_markdown(
             "toc",
             "sane_lists",
             _WikiLinkExtension(wiki_resolver),
-            _LinkRewriteExtension(list(source_exts), out_ext),
+            _LinkRewriteExtension(list(source_exts), out_ext, link_title),
         ],
         extension_configs={"toc": {"slugify": heading_slug}},
         output_format="html",
