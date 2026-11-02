@@ -185,3 +185,36 @@ def test_wikilink_without_label_uses_title(tmp_path):
     assert '<a class="wikilink" href="p.html#節">ページP &gt; 節</a>' in top
     assert '<a class="wikilink" href="p.html">自分で</a>' in top
     assert '<a href="p.html">x</a>' in top
+
+
+def test_is_external_link():
+    assert parser.is_external_link("https://example.com/a.md")
+    assert parser.is_external_link("http://example.com")
+    assert parser.is_external_link("//example.com/x")
+    assert not parser.is_external_link("page.md")
+    assert not parser.is_external_link("../a/b.pdf")
+    assert not parser.is_external_link("#top")
+    assert not parser.is_external_link("mailto:a@example.com")
+
+
+def test_external_icon_on_by_default():
+    md = "[外](https://example.com) [内](page.md) <https://example.com/x> [[p]]"
+    html = parser.render_markdown(md, [".md"], ".html", wiki_resolver=lambda t: ("p.html", "P"))
+    assert '<a class="external" href="https://example.com">外</a>' in html
+    assert 'class="external" href="https://example.com/x"' in html
+    assert '<a href="page.html">内</a>' in html
+    assert '<a class="wikilink" href="p.html">P</a>' in html
+
+
+def test_external_icon_off():
+    html = parser.render_markdown("[外](https://example.com)", [".md"], ".html", external_icon=False)
+    assert '<a href="https://example.com">外</a>' in html
+
+
+def test_cli_external_icon_option(tmp_path):
+    on, off = tmp_path / "on", tmp_path / "off"
+    assert cli.main([str(SAMPLES), "-o", str(on)]) == 0
+    assert cli.main([str(SAMPLES), "-o", str(off), "--no-external-icon"]) == 0
+    page = Path("ガイド") / "環境構築.html"
+    assert 'class="external"' in (on / page).read_text(encoding="utf-8")
+    assert 'class="external"' not in (off / page).read_text(encoding="utf-8")

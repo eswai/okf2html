@@ -106,17 +106,35 @@ def _is_default_link_text(text: str, href: str, source_exts: Iterable[str]) -> b
     return text in {unicodedata.normalize("NFC", c) for c in candidates}
 
 
+def is_external_link(href: str) -> bool:
+    """別のサイトへのリンクか（http / https、または // で始まる）。"""
+    parts = urlsplit(href.strip())
+    return parts.scheme.lower() in ("http", "https") or (not parts.scheme and bool(parts.netloc))
+
+
 class _LinkRewriter(Treeprocessor):
-    def __init__(self, md, source_exts: Iterable[str], out_ext: str, link_title: Optional[LinkTitle]):
+    def __init__(
+        self,
+        md,
+        source_exts: Iterable[str],
+        out_ext: str,
+        link_title: Optional[LinkTitle],
+        external_icon: bool,
+    ):
         super().__init__(md)
         self.source_exts = tuple(e.lower() for e in source_exts)
         self.out_ext = out_ext
         self.link_title = link_title
+        self.external_icon = external_icon
 
     def run(self, root):
         for a in root.iter("a"):
             href = a.get("href")
             if not href or "wikilink" in (a.get("class") or ""):
+                continue
+            if self.external_icon and is_external_link(href):
+                # 外部リンクには CSS で小さなアイコンを付ける
+                a.set("class", ((a.get("class") or "") + " external").strip())
                 continue
             new_href = rewrite_link(href, self.source_exts, self.out_ext)
             if new_href != href and self.link_title and len(a) == 0:
@@ -129,15 +147,24 @@ class _LinkRewriter(Treeprocessor):
 
 
 class _LinkRewriteExtension(Extension):
-    def __init__(self, source_exts: Iterable[str], out_ext: str, link_title: Optional[LinkTitle]):
+    def __init__(
+        self,
+        source_exts: Iterable[str],
+        out_ext: str,
+        link_title: Optional[LinkTitle],
+        external_icon: bool,
+    ):
         super().__init__()
         self.source_exts = source_exts
         self.out_ext = out_ext
         self.link_title = link_title
+        self.external_icon = external_icon
 
     def extendMarkdown(self, md):
         md.treeprocessors.register(
-            _LinkRewriter(md, self.source_exts, self.out_ext, self.link_title), "okf_links", 0
+            _LinkRewriter(md, self.source_exts, self.out_ext, self.link_title, self.external_icon),
+            "okf_links",
+            0,
         )
 
 
@@ -211,6 +238,7 @@ def render_markdown(
     out_ext: str,
     wiki_resolver: Optional[WikiResolver] = None,
     link_title: Optional[LinkTitle] = None,
+    external_icon: bool = True,
 ) -> str:
     md = markdown.Markdown(
         extensions=[
@@ -219,7 +247,7 @@ def render_markdown(
             "toc",
             "sane_lists",
             _WikiLinkExtension(wiki_resolver),
-            _LinkRewriteExtension(list(source_exts), out_ext, link_title),
+            _LinkRewriteExtension(list(source_exts), out_ext, link_title, external_icon),
         ],
         extension_configs={"toc": {"slugify": heading_slug}},
         output_format="html",

@@ -42,6 +42,7 @@ class App:
         self.title_var = tk.StringVar()
         self.ext_var = tk.StringVar(value=".md")
         self.format_var = tk.StringVar(value="html")
+        self.external_icon_var = tk.BooleanVar(value=True)
 
         frm = ttk.Frame(root, padding=12)
         frm.pack(fill="both", expand=True)
@@ -67,16 +68,21 @@ class App:
         ttk.Radiobutton(fmt_box, text="HTML (.html)", value="html", variable=self.format_var).pack(side="left")
         ttk.Radiobutton(fmt_box, text="ASPX (.aspx)", value="aspx", variable=self.format_var).pack(side="left", padx=12)
 
+        ttk.Label(frm, text="外部リンク").grid(row=5, column=0, sticky="w", pady=3)
+        ttk.Checkbutton(frm, text="アイコンを付ける", variable=self.external_icon_var).grid(
+            row=5, column=1, sticky="w", padx=6
+        )
+
         btns = ttk.Frame(frm)
-        btns.grid(row=5, column=0, columnspan=3, sticky="w", pady=(10, 6))
+        btns.grid(row=6, column=0, columnspan=3, sticky="w", pady=(10, 6))
         self.run_btn = ttk.Button(btns, text="生成", command=self.run)
         self.run_btn.pack(side="left")
         self.open_btn = ttk.Button(btns, text="出力フォルダを開く", command=self.open_output)
         self.open_btn.pack(side="left", padx=8)
 
         self.log = ScrolledText(frm, height=12, state="disabled", wrap="word")
-        self.log.grid(row=6, column=0, columnspan=3, sticky="nsew")
-        frm.rowconfigure(6, weight=1)
+        self.log.grid(row=7, column=0, columnspan=3, sticky="nsew")
+        frm.rowconfigure(7, weight=1)
 
     def choose_input(self) -> None:
         path = filedialog.askdirectory(title="入力フォルダを選択")
@@ -114,6 +120,7 @@ class App:
             args += ["--title", self.title_var.get().strip()]
         if self.ext_var.get().strip():
             args += ["--ext", self.ext_var.get().strip()]
+        args.append("--external-icon" if self.external_icon_var.get() else "--no-external-icon")
 
         self.log.configure(state="normal")
         self.log.delete("1.0", "end")

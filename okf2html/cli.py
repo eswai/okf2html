@@ -19,6 +19,12 @@ def _make_parser() -> argparse.ArgumentParser:
     p.add_argument("-f", "--format", choices=sorted(FORMATS), default="html", help="出力形式（既定: html）")
     p.add_argument("-t", "--title", help="サイト名（既定: 入力フォルダ名）")
     p.add_argument("--ext", default=".md", help="対象の拡張子。カンマ区切りで複数指定可（既定: .md）")
+    p.add_argument(
+        "--external-icon",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="外部リンク（http/https）の後ろに小さなアイコンを付ける（既定: 付ける。--no-external-icon で付けない）",
+    )
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return p
 
@@ -43,6 +49,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             fmt=args.format,
             site_title=args.title,
             exts=exts,
+            external_icon=args.external_icon,
             log=lambda m: print(m, flush=True),
             warn=lambda m: print(m, file=sys.stderr, flush=True),
         )

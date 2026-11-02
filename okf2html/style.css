@@ -133,6 +133,21 @@ table.frontmatter .fm-rest { white-space: pre-wrap; color: #3d4447; }
 .body p, .body ul, .body ol, .body blockquote, .body pre, .body table { margin: 0 0 1em; }
 .body a { color: var(--accent); }
 .body a:hover { color: var(--accent-dark); }
+.body a.external::after {
+  content: "";
+  display: inline-block;
+  width: 0.72em;
+  height: 0.72em;
+  margin-left: 0.18em;
+  vertical-align: 0.02em;
+  background-color: currentColor;
+  opacity: 0.75;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6'/%3E%3Cpath d='M11 13l9-9'/%3E%3Cpath d='M15 4h5v5'/%3E%3C/svg%3E") no-repeat center / contain;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6'/%3E%3Cpath d='M11 13l9-9'/%3E%3Cpath d='M15 4h5v5'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+@media print {
+  .body a.external::after { display: none; }
+}
 .body .wikilink.missing {
   color: var(--text-muted);
   text-decoration: underline dotted;

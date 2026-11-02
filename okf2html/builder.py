@@ -213,6 +213,7 @@ def build(
     fmt: str = "html",
     site_title: Optional[str] = None,
     exts: Sequence[str] = (".md",),
+    external_icon: bool = True,
     log: Callable[[str], None] = print,
     warn: Callable[[str], None] = print,
 ) -> int:
@@ -278,7 +279,7 @@ def build(
     total = len(pages)
     for i, page in enumerate(pages, 1):
         body_html = parser.render_markdown(
-            page.body, exts, out_ext, wiki.resolver(page, warn), wiki.link_title(page)
+            page.body, exts, out_ext, wiki.resolver(page, warn), wiki.link_title(page), external_icon
         )
         content = render_frontmatter(page.meta) + '<div class="body">' + body_html + "</div>"
         html = template.render_page(

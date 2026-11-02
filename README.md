@@ -18,6 +18,7 @@ OKF（Markdown + YAML frontmatter）のフォルダから、2 ペイン構成の
   - 対象: `[[ページ]]`、`[](page.md)`、`[page](page.md)`、`[page.md](page.md)`、`[フォルダ/page.md](フォルダ/page.md)` など
   - 見出しつきは「title > 見出し」と表示する（例: `[[api#エンドポイント]]` → 「API リファレンス > エンドポイント」）
   - `[[ページ|表示名]]` や `[説明文](page.md)` のように表示名を書いたものはそのまま
+- 外部リンク（`http://` / `https://`）の後ろに小さなアイコンを付ける（`--no-external-icon` で付けない）
 - 画像・PDF（png, jpg, gif, svg, webp, pdf など）は同じフォルダ構成で出力先へコピーする
 - 入力のルートに `index.md` が無ければ、全ページの一覧ページ `index.html|aspx` を作る
 
@@ -38,7 +39,7 @@ uv 以外の Python を使う場合、GUI には Tk 8.6 以上が必要です。
 ## CLI
 
 ```
-okf2html INPUT_DIR -o OUTPUT_DIR [--format html|aspx] [--title サイト名] [--ext .md,.okf]
+okf2html INPUT_DIR -o OUTPUT_DIR [--format html|aspx] [--title サイト名] [--ext .md,.okf] [--no-external-icon]
 ```
 
 | オプション | 説明 |
@@ -47,6 +48,7 @@ okf2html INPUT_DIR -o OUTPUT_DIR [--format html|aspx] [--title サイト名] [--
 | `-f, --format` | `html`（既定）または `aspx` |
 | `-t, --title` | サイト名（既定: 入力フォルダ名） |
 | `--ext` | 対象の拡張子。カンマ区切りで複数可（既定: `.md`） |
+| `--external-icon` / `--no-external-icon` | 外部リンクにアイコンを付けるか（既定: 付ける） |
 
 例:
 
@@ -62,7 +64,7 @@ uv run okf2html docs -o _site --format aspx --title "社内ナレッジ"
 uv run okf2html-gui        # または uv run python -m okf2html.gui
 ```
 
-入力フォルダ・出力フォルダ・サイト名・形式を指定して「生成」を押します。GUI は裏で CLI を呼び出し、その出力をログ欄に表示します。
+入力フォルダ・出力フォルダ・サイト名・形式・外部リンクのアイコンの有無を指定して「生成」を押します。GUI は裏で CLI を呼び出し、その出力をログ欄に表示します。
 
 ## 単体実行ファイルにする（任意）
 
