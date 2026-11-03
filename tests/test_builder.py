@@ -286,3 +286,17 @@ def test_long_wikilink_label_is_truncated():
     resolver = lambda t: ("p.html", "とても長いタイトルのページで二十文字を超えるもの")
     html = parser.render_markdown("[[p]]", [".md"], ".html", wiki_resolver=resolver)
     assert 'class="wikilink truncated"' in html
+
+
+def test_list_and_table_without_blank_line():
+    from okf2html.parser import render_markdown
+
+    html = render_markdown("段落\n- a\n- b\n\n手順\n1. x\n2. y", [".md"], ".html")
+    assert "<p>段落</p>" in html and "<ul>" in html and "<ol>" in html
+    html = render_markdown("段落\n| a | b |\n|---|---|\n| 1 | 2 |\n後ろ", [".md"], ".html")
+    assert "<p>段落</p>" in html and "<table>" in html and "<p>後ろ</p>" in html
+    # リスト内の続き行・入れ子・コードブロックは崩さない
+    html = render_markdown("- a\n続き\n- b\n    - c", [".md"], ".html")
+    assert "<p>" not in html and html.count("<ul>") == 2
+    html = render_markdown("```\n文\n- x\n```", [".md"], ".html")
+    assert "<ul>" not in html

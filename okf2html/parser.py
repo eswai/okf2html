@@ -14,6 +14,7 @@ import yaml
 from markdown.extensions import Extension
 from markdown.extensions.toc import slugify_unicode
 from markdown.inlinepatterns import InlineProcessor
+from markdown.preprocessors import Preprocessor
 from markdown.treeprocessors import Treeprocessor
 
 # [[リンク先]] / [[リンク先|表示名]] / [[リンク先#見出し]] / [[#見出し]]
@@ -289,6 +290,76 @@ class _WikiLinkExtension(Extension):
         md.inlinePatterns.register(_WikiLinkProcessor(WIKILINK_RE, md, self.resolver), "okf_wikilink", 175)
 
 
+# リストの行頭（インデント 3 文字まで）: "- " "* " "+ " "1. " "1) "
+_LIST_ITEM_RE = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}[.)])[ \t]+\S")
+# テーブルの区切り行: |---|:---:| など（| を 1 つ以上含む）
+_TABLE_SEP_RE = re.compile(r"^ {0,3}\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$")
+
+
+def _is_table_row(line: str) -> bool:
+    return "|" in line and not line.startswith("    ")
+
+
+def _is_table_sep(line: str) -> bool:
+    return "|" in line and bool(_TABLE_SEP_RE.match(line))
+
+
+class _BlankLineBeforeBlocks(Preprocessor):
+    """段落の直後に空行なしで始まるリストやテーブルの前後に空行を補う。
+
+    Python-Markdown は空行で区切られていないリストやテーブルを段落の続きとみなすため。
+    フェンス付きコードブロックは先に退避済み（fenced_code の後に実行）なので影響しない。
+    """
+
+    def run(self, lines):
+        out: List[str] = []
+        in_list = False
+        in_table = False
+        for i, line in enumerate(lines):
+            prev = out[-1] if out else ""
+            blank_prev = not prev.strip()
+            nxt = lines[i + 1] if i + 1 < len(lines) else ""
+
+            if not line.strip():
+                in_list = in_table = False
+                out.append(line)
+                continue
+
+            if in_table:
+                if _is_table_row(line):
+                    out.append(line)
+                    continue
+                # テーブルの直後に続く本文
+                out.append("")
+                in_table = False
+
+            if _is_table_row(line) and _is_table_sep(nxt):
+                if not blank_prev:
+                    out.append("")
+                in_table = True
+                in_list = False
+                out.append(line)
+                continue
+
+            if _LIST_ITEM_RE.match(line):
+                if not in_list and not blank_prev:
+                    out.append("")
+                in_list = True
+                out.append(line)
+                continue
+
+            if line.lstrip().startswith("#"):
+                in_list = False
+            out.append(line)
+        return out
+
+
+class _BlankLineExtension(Extension):
+    def extendMarkdown(self, md):
+        # fenced_code（25）と html_block（20）の後
+        md.preprocessors.register(_BlankLineBeforeBlocks(md), "okf_blank_lines", 15)
+
+
 def render_markdown(
     body: str,
     source_exts: Iterable[str],
@@ -303,6 +374,7 @@ def render_markdown(
             "fenced_code",
             "toc",
             "sane_lists",
+            _BlankLineExtension(),
             _WikiLinkExtension(wiki_resolver),
             _LinkRewriteExtension(list(source_exts), out_ext, link_title, external_icon),
         ],
